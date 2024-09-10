@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(uuid())
+  profile_picture String?
+  username        String
+  email           String    @unique @db.VarChar(255)
+  password        String?
+  createdAt       DateTime  @default(now()) @db.Timestamp(0)
+  update_date     DateTime?
+  state           Boolean   @default(true)
+
+  rol            Rol             @relation(fields: [rolId], references: [id])
+  rolId          Int
+  Qr             Qr[]
+  LoginLogs      LoginLogs?
+  MembershipUser MembershipUser?
+}
+
+enum roles {
+  ADMIN
+  CLIENT
+}
+
+//! Para el alcance
+model Rol {
+  id            Int             @id @default(autoincrement())
+  name          roles
+  state         Boolean         @default(true)
+  createdAt     DateTime
+  update_date   DateTime?
+  RolPermission RolPermission[]
+  User          User[]
+}
+
+model MembershipUser {
+  id String @id @default(uuid())
+
+  quantity_current_use Int?      @default(0)
+  createdAt            DateTime
+  update_date          DateTime?
+  limit_date           DateTime
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique
+  membership   Membership @relation(fields: [membershipId], references: [id])
+  membershipId String
+  
+  @@unique([membershipId, userId], map: "id_membership_user")
+}
+
+model Membership {
+  id                   String   @id @default(uuid())
+  type_membership      String
+  description          String
+  membership_duration  DateTime
+  price                Decimal  @db.Decimal(10, 2)
+  active_qrs           Int
+  scan_qrs             Int
+  premium_support      Boolean
+  unlimited_static_qrs Boolean
+
+  state              Boolean              @default(true)
+  createdAt          DateTime
+  update_date        DateTime?
+  DiscountMembership DiscountMembership[]
+  MembershipUser     MembershipUser[]
+}
+
+model LoginLogs {
+  id                String    @id @default(uuid())
+  failed_login      Int?      @default(0)
+  failed_login_time DateTime?
+  created_ip        String
+  update_ip         String?
+  login_date        DateTime?
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String    @unique
+}
+
+model PreRegister {
+  id                    String    @id @default(uuid())
+  email                 String    @unique @db.VarChar(255)
+  createdAt             DateTime
+  last_pin_generated_at DateTime?
+  pin                   Int
+}
+
+model RolPermission {
+  id    Int      @id @default(autoincrement())
+  useAt DateTime
+
+  rolId        Int
+  rol          Rol        @relation(fields: [rolId], references: [id])
+  permissionId Int
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([rolId, permissionId], map: "id_rol_permission")
+}
+
+model Permission {
+  id            Int             @id @default(autoincrement())
+  description   String
+  state         Boolean         @default(true)
+  createdAt     DateTime
+  update_date   DateTime?
+  RolPermission RolPermission[]
+}
+
+model DiscountMembership {
+  id String @id @default(uuid())
+
+  membershipId String @unique
+  membership   Membership @relation(fields: [membershipId], references: [id])
+  discountId   String
+  discount     Discount   @relation(fields: [discountId], references: [id])
+
+  @@unique([membershipId, discountId], map: "id_discount_membership")
+}
+
+model Discount {
+  id String @id @default(uuid())
+
+  discount             String
+  description          String
+  limit_date           DateTime?
+  use_quantity         Int?
+  quantity_current_use Int?      @default(0)
+
+  state              Boolean              @default(true)
+  createdAt          DateTime    @default(now())        
+  update_date        DateTime?
+  DiscountMembership DiscountMembership[]
+}
+
+model Qr {
+  id              String    @id @default(uuid())
+  name_qr         String    @db.VarChar(30)
+  qr              String?
+  state           Boolean   @default(true)
+  createdAt       DateTime
+  update_date     DateTime?
+  qr_image_base64 Bytes     @db.MediumBlob // Usa el tipo de datos Blob en MySQL para almacenar datos binarios
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  QrDesign   QrDesign   @relation(fields: [qrDesignId], references: [id], onDelete: Cascade)
+  qrDesignId String     @unique
+  qrType     QrType     @relation(fields: [qrTypeId], references: [id])
+  qrTypeId   String
+  QrText     QrText?
+  QrLogo     QrLogo?
+  QrPreview  QrPreview?
+}
+
+model QrType {
+  id          String @id @default(uuid())
+  type        String
+  description String
+  Qr          Qr[]
+}
+
+model QrPreview {
+  id               String  @id @default(uuid())
+  title            String?
+  colorTitle       String
+  description      String? @db.VarChar(300)
+  descriptionColor String
+  boxColor         String
+  borderImg        String
+  imgBoxBackgroud  Bytes?  @db.Blob
+  backgroudColor   String
+  SelectOptions    Json
+
+  qr   Qr     @relation(fields: [qrId], references: [id], onDelete: Cascade)
+  qrId String @unique
+}
+
+model QrText {
+  id        String @id @default(uuid())
+  text      String
+  position  Json
+  colorText String
+
+  qr             Qr           @relation(fields: [qrId], references: [id], onDelete: Cascade)
+  qrId           String       @unique
+  QrTextFont     QrTextFont   @relation(fields: [qrTextFontId], references: [id])
+  qrTextFontId   String
+  QrTextBubble   QrTextBubble @relation(fields: [qrTextBubbleId], references: [id])
+  qrTextBubbleId String
+}
+
+model QrTextFont {
+  id         String @id @default(uuid())
+  fontFamily Json
+
+  QrText QrText[]
+}
+
+model QrTextBubble {
+  id      String @id @default(uuid())
+  bubble Json
+  color   String
+
+  QrText QrText[]
+}
+
+model QrDesign {
+  id                String @id @default(uuid())
+  frame             String
+  frameColor        String
+  dots              String
+  dotsColor         String
+  cornerSquare      String
+  cornerSquareColor String
+  cornerDot         String
+  cornerDotColor    String
+
+  Qr Qr?
+}
+
+model QrLogo {
+  id   String @id @default(uuid())
+  logo String
+
+  qr   Qr     @relation(fields: [qrId], references: [id], onDelete: Cascade)
+  qrId String @unique
+}
